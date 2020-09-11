@@ -246,9 +246,12 @@ impl<'a> SourcePairImport<'a> {
         let mut f = File::open(&meta).await?;
         scratch_buf.clear();
         f.read_to_end(scratch_buf).await?;
-        let mut deserializer = ron::de::Deserializer::from_bytes(&scratch_buf)?;
-        let mut deserializer = erased_serde::Deserializer::erase(&mut deserializer);
-        self.source_metadata = Some(importer.deserialize_metadata(&mut deserializer)?);
+        self.source_metadata = Some(importer.deserialize_metadata(scratch_buf).map_err(
+            |e| match e {
+                atelier_importer::Error::RonDe(e) => Error::MetaDeError(meta, e),
+                e => e.into(),
+            },
+        )?);
         Ok(())
     }
 

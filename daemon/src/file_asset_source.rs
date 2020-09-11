@@ -1464,23 +1464,15 @@ where
                 );
             }
             if saved_metadata.get_importer_options_type()? == metadata.importer_options.uuid() {
-                let mut deserializer = bincode::Deserializer::from_slice(
-                    saved_metadata.get_importer_options()?,
-                    bincode::options(),
-                );
-                let mut deserializer = erased_serde::Deserializer::erase(&mut deserializer);
-
-                if let Ok(options) = importer.deserialize_options(&mut deserializer) {
+                if let Ok(options) =
+                    importer.deserialize_options(saved_metadata.get_importer_options()?)
+                {
                     metadata.importer_options = options;
                 }
             }
             if saved_metadata.get_importer_state_type()? == metadata.importer_state.uuid() {
-                let mut deserializer = bincode::Deserializer::from_slice(
-                    saved_metadata.get_importer_state()?,
-                    bincode::options(),
-                );
-                let mut deserializer = erased_serde::Deserializer::erase(&mut deserializer);
-                if let Ok(state) = importer.deserialize_state(&mut deserializer) {
+                if let Ok(state) = importer.deserialize_state(saved_metadata.get_importer_state()?)
+                {
                     metadata.importer_state = state;
                 }
             }

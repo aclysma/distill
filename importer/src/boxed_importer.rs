@@ -87,15 +87,15 @@ pub trait BoxedImporter: TypeUuidDynamic + Send + Sync + 'static {
     fn version(&self) -> u32;
     fn deserialize_metadata<'a>(
         &self,
-        deserializer: &mut dyn Deserializer,
+        bytes: &'a [u8]
     ) -> Result<SourceMetadata<Box<dyn SerdeObj>, Box<dyn SerdeObj>>>;
     fn deserialize_options<'a>(
         &self,
-        deserializer: &mut dyn Deserializer,
+        bytes: &'a [u8]
     ) -> Result<Box<dyn SerdeObj>>;
     fn deserialize_state<'a>(
         &self,
-        deserializer: &mut dyn Deserializer,
+        bytes: &'a [u8]
     ) -> Result<Box<dyn SerdeObj>>;
 }
 
@@ -202,9 +202,9 @@ where
 
     fn deserialize_metadata<'a>(
         &self,
-        deserializer: &mut dyn Deserializer,
+        bytes: &'a [u8]
     ) -> Result<SourceMetadata<Box<dyn SerdeObj>, Box<dyn SerdeObj>>> {
-        let metadata = erased_serde::deserialize::<SourceMetadata<O, S>>(deserializer)?;
+        let metadata: SourceMetadata<O, S> = ron::de::from_bytes(&bytes)?;
         Ok(SourceMetadata {
             version: metadata.version,
             import_hash: metadata.import_hash,
@@ -218,15 +218,15 @@ where
 
     fn deserialize_options<'a>(
         &self,
-        deserializer: &mut dyn Deserializer,
+        bytes: &'a [u8]
     ) -> Result<Box<dyn SerdeObj>> {
-        Ok(Box::new(erased_serde::deserialize::<O>(deserializer)?))
+        Ok(Box::new(bincode::deserialize::<O>(&bytes).unwrap()))
     }
 
     fn deserialize_state<'a>(
         &self,
-        deserializer: &mut dyn Deserializer,
+        bytes: &'a [u8]
     ) -> Result<Box<dyn SerdeObj>> {
-        Ok(Box::new(erased_serde::deserialize::<S>(deserializer)?))
+        Ok(Box::new(bincode::deserialize::<S>(&bytes).unwrap()))
     }
 }
