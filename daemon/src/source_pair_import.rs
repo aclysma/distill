@@ -9,10 +9,8 @@ use atelier_importer::{
     SOURCEMETADATA_VERSION,
 };
 use atelier_schema::data;
-use bincode;
 use futures_core::future::{Future, BoxFuture};
 use log::{debug, error};
-use ron;
 use std::io::Read;
 use std::{
     collections::HashSet,
@@ -58,14 +56,12 @@ impl AssetImportResult {
     pub(crate) fn is_fully_resolved(&self) -> bool {
         self.unresolved_load_refs
             .iter()
-            .filter(|r| r.is_uuid())
-            .next()
+            .find(|r| r.is_uuid())
             .is_none()
             && self
                 .unresolved_build_refs
                 .iter()
-                .filter(|r| r.is_uuid())
-                .next()
+                .find(|r| r.is_uuid())
                 .is_none()
     }
 }
@@ -271,7 +267,7 @@ impl<'a> SourcePairImport<'a> {
 
         let restored =
             metadata_cache.restore_metadata(&self.source, importer, &mut default_metadata);
-        if let Ok(_) = restored {
+        if restored.is_ok() {
             self.source_metadata = Some(default_metadata);
         }
     }
@@ -307,7 +303,7 @@ impl<'a> SourcePairImport<'a> {
                                 .cloned()
                                 .collect()
                         })
-                        .unwrap_or(Vec::new()),
+                        .unwrap_or_else(Vec::new),
                 );
             let unresolved_build_refs: HashSet<AssetRef, std::collections::hash_map::RandomState> =
                 HashSet::from_iter(
@@ -322,7 +318,7 @@ impl<'a> SourcePairImport<'a> {
                                 .cloned()
                                 .collect()
                         })
-                        .unwrap_or(Vec::new()),
+                        .unwrap_or_else(Vec::new),
                 );
             assets.push(AssetImportResult {
                 metadata: asset.clone(),
@@ -549,15 +545,13 @@ impl<'a> SourcePairImport<'a> {
                 let cursor = std::io::Cursor::new(contents);
 
                 use tokio_util::compat::*;
-                let result = importer
+                importer
                     .import_boxed(
                         &mut cursor.compat(),
                         metadata.importer_options,
                         metadata.importer_state,
                     )
-                    .await;
-
-                result
+                    .await
             })
             .await?;
         log::trace!("import_source building result {:?}", self.source);
@@ -771,7 +765,7 @@ fn get_path_file_state(path: PathBuf) -> Result<Option<FileState>> {
         Ok(metadata) => Some(crate::watcher::file_metadata(&metadata)),
     };
     Ok(state.map(|metadata| FileState {
-        path: path,
+        path,
         state: data::FileState::Exists,
         last_modified: metadata.last_modified,
         length: metadata.length,
@@ -814,7 +808,7 @@ pub(crate) async fn export_pair<'a, C: SourceMetadataCache>(
             source_hash: None,
             ..
         } => {
-            return Err(Error::Custom("Export target path is a directory".into()));
+            Err(Error::Custom("Export target path is a directory".into()))
         }
         // Meta path is a directory
         HashedSourcePair {
@@ -822,9 +816,9 @@ pub(crate) async fn export_pair<'a, C: SourceMetadataCache>(
             meta_hash: None,
             ..
         } => {
-            return Err(Error::Custom(
+            Err(Error::Custom(
                 "Export target .meta path is a directory".into(),
-            ));
+            ))
         }
         HashedSourcePair {
             source_hash,
@@ -840,10 +834,10 @@ pub(crate) async fn export_pair<'a, C: SourceMetadataCache>(
             }
             op.set_importer_contexts(importer_contexts);
             if !op.set_importer_from_map(&importer_map) {
-                return Err(Error::Custom(format!(
+                Err(Error::Custom(format!(
                     "no importer registered for extension {:?}",
                     source_path.extension()
-                )));
+                )))
             } else {
                 if op.needs_source_import(scratch_buf)? {
                     // if we can't use cached metadata, read from file
