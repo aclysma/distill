@@ -103,6 +103,7 @@ impl<'a, T> Stream for Scope<'a, T> {
     }
 }
 
+#[allow(clippy::needless_lifetimes)]
 #[pinned_drop]
 impl<'a, T> PinnedDrop for Scope<'a, T> {
     fn drop(mut self: Pin<&mut Self>) {
