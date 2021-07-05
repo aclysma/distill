@@ -79,7 +79,9 @@ impl<'cursor, 'txn> Iterator for Iter<'cursor, 'txn> {
                 let mut slice = value_bytes;
                 let value_msg = capnp::serialize::read_message_from_flat_slice(
                     &mut slice,
-                    capnp::message::ReaderOptions::default(),
+                    *capnp::message::ReaderOptions::new()
+                        .nesting_limit(64)
+                        .traversal_limit_in_words(Some(256 * 1024 * 1024)),
                 );
                 Some((key_bytes, value_msg))
             }
@@ -108,7 +110,9 @@ pub trait DBTransaction<'a, T: lmdb::Transaction + 'a>: Sized {
         if let Ok(mut slice) = get_result {
             let msg = capnp::serialize::read_message_from_flat_slice(
                 &mut slice,
-                capnp::message::ReaderOptions::default(),
+                *capnp::message::ReaderOptions::new()
+                    .nesting_limit(64)
+                    .traversal_limit_in_words(Some(256 * 1024 * 1024)),
             )?
             .into_typed::<V>();
             Ok(Some(msg))
@@ -137,7 +141,9 @@ pub trait DBTransaction<'a, T: lmdb::Transaction + 'a>: Sized {
         if let Ok(mut slice) = get_result {
             let msg = capnp::serialize::read_message_from_flat_slice(
                 &mut slice,
-                capnp::message::ReaderOptions::default(),
+                *capnp::message::ReaderOptions::new()
+                    .nesting_limit(64)
+                    .traversal_limit_in_words(Some(256 * 1024 * 1024)),
             )?
             .into_typed::<V>();
             Ok(Some(msg))
