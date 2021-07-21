@@ -69,7 +69,7 @@ impl Drop for PackfileMessageReaderFile {
 
 #[derive(PartialEq)]
 enum RuntimeType {
-    //CurrentThread,
+    CurrentThread,
     MultiThread,
 }
 
@@ -165,10 +165,10 @@ impl PackfileReader {
         let runtime_type = RuntimeType::CurrentThread;
 
         #[cfg(not(target_arch = "wasm32"))]
-        let runtime_type = RuntimeType::MultiThread;
+        let runtime_type = RuntimeType::CurrentThread;
 
         let runtime = match runtime_type {
-            //RuntimeType::CurrentThread => bevy_tasks::IoTaskPool(bevy_tasks::TaskPoolBuilder::default().build()),
+            RuntimeType::CurrentThread => bevy_tasks::IoTaskPool(bevy_tasks::TaskPoolBuilder::default().build()),
             RuntimeType::MultiThread => bevy_tasks::IoTaskPool(bevy_tasks::TaskPoolBuilder::default().build()),
         };
 
@@ -298,8 +298,38 @@ impl LoaderIO for PackfileReader {
 
     fn tick(&mut self, _loader: &mut LoaderState) {
         // We require this yield if the runtime is a CurrentThread runtime
-        //if self.0.runtime_type == RuntimeType::CurrentThread {
-        //    self.0.runtime.block_on(tokio::task::yield_now());
-        //}
+        if self.0.runtime_type == RuntimeType::CurrentThread {
+            async_io::block_on(yield_now::yield_now())
+        }
+    }
+}
+
+mod yield_now {
+    use std::future::Future;
+    use std::pin::Pin;
+    use std::task::{Context, Poll};
+
+    #[inline]
+    pub async fn yield_now() {
+        YieldNow(false).await
+    }
+
+    struct YieldNow(bool);
+
+    impl Future for YieldNow {
+        type Output = ();
+
+        // The futures executor is implemented as a FIFO queue, so all this future
+        // does is re-schedule the future back to the end of the queue, giving room
+        // for other futures to progress.
+        fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+            if !self.0 {
+                self.0 = true;
+                cx.waker().wake_by_ref();
+                Poll::Pending
+            } else {
+                Poll::Ready(())
+            }
+        }
     }
 }
